@@ -1,0 +1,87 @@
+/* Card faces (hand, rewards, warm-up). Hover juice is added in Phase 9. */
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 150px;
+  min-height: 190px;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--color-text);
+  background: linear-gradient(170deg, #24382e, #1a2b23);
+  border: 1px solid #ffffff1f;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
+}
+
+.card:hover:not(:disabled) {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-raised);
+}
+
+.card:disabled,
+.card--disabled {
+  cursor: default;
+  filter: grayscale(0.5) brightness(0.7);
+}
+
+.card--compact {
+  width: 130px;
+  min-height: 160px;
+}
+
+.card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.card__name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.card__cost {
+  font-size: 0.8rem;
+  background: #00000040;
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.card__icon {
+  font-size: 2.2rem;
+  text-align: center;
+  padding: 4px 0;
+}
+
+.card__rarity {
+  font-size: 0.65rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.card__effect {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  color: #d8e6dc;
+}
+
+/* Rarity accents along the left edge. */
+.card--common {
+  border-left: 4px solid #8aa0a8;
+}
+.card--uncommon {
+  border-left: 4px solid #4ea3ff;
+}
+.card--rare {
+  border-left: 4px solid #ffba49;
+}
