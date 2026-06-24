@@ -31,7 +31,8 @@ export default function OpponentPanel({ opponent, court, rally, bark }: Opponent
           <p className="opponent-panel__bark">“{bark}”</p>
         </div>
         <div className="opponent-panel__court" title={court.modifierText}>
-          🏟️ {court.name}
+          <span>🏟️ {court.name}</span>
+          <span className="opponent-panel__court-mod">{court.modifierText}</span>
         </div>
       </div>
 

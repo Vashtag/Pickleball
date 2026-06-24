@@ -23,6 +23,26 @@ export function chooseIntent(opponent: Opponent, rng: Rng): OpponentIntent {
   );
 }
 
+// Chance an intent is shown vaguely. Rises with difficulty; elites/bosses are
+// harder to read (design doc §10: later opponents show vague/hidden intent).
+function hiddenChance(difficulty: number, tier: Opponent['tier']): number {
+  let c = Math.max(0, (difficulty - 6) * 0.04);
+  if (tier === 'elite') c += 0.1;
+  if (tier === 'boss') c += 0.2;
+  return Math.min(0.4, c);
+}
+
+// Pick the next intent and decide whether it reads as hidden.
+export function chooseIntentReveal(
+  opponent: Opponent,
+  rng: Rng,
+  difficulty: number,
+): { intent: OpponentIntent; hidden: boolean } {
+  const intent = chooseIntent(opponent, rng);
+  const hidden = isIntentHidden(intent) || rng.chance(hiddenChance(difficulty, opponent.tier));
+  return { intent, hidden };
+}
+
 export interface IntentResolution {
   /** True if the player's previous card this turn was aggressive (Power). */
   playerWasAggressive: boolean;
@@ -36,6 +56,7 @@ export function resolveIntent(
   res: IntentResolution,
   rng: Rng,
   log: string[],
+  difficulty = 0,
 ): void {
   log.push(`${opponent.name}: ${intent.name}.`);
 
@@ -105,9 +126,15 @@ export function resolveIntent(
     }
   }
 
-  // The Banger's passive ("Big Swing"): aggressive intents nudge extra Pressure.
-  if (opponent.id === 'the_banger' && intent.aggressive) {
-    // Light MVP version: +0 at base difficulty; Phase 5 scales this up.
+  // Difficulty scaling and The Banger's "Big Swing" passive: aggressive intents
+  // inflict extra Pressure as the run gets harder.
+  if (intent.aggressive) {
+    let aggroBonus = Math.floor(difficulty / 6); // +1 from rally 6, +2 from 12
+    if (opponent.id === 'the_banger' && difficulty >= 3) aggroBonus += 1; // Big Swing
+    if (aggroBonus > 0) {
+      log.push(`${opponent.name} bears down (+${aggroBonus} Pressure).`);
+      gainPressure(rally, aggroBonus, log);
+    }
   }
 }
 
