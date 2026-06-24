@@ -41,6 +41,8 @@ export interface RallyMods {
 }
 
 export interface RallyState {
+  /** Court id in effect this rally (drives court modifiers). */
+  courtId: string;
   opponentBalance: number;
   opponentMaxBalance: number;
   pressure: number;

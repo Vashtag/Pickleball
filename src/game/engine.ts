@@ -14,8 +14,7 @@ import {
 } from './cardEffects';
 import {
   cardIsAggressive,
-  chooseIntent,
-  isIntentHidden,
+  chooseIntentReveal,
   resolveIntent,
 } from './opponentAI';
 import { isCard } from './combos';
@@ -72,9 +71,15 @@ function isBossOpponent(id: string): boolean {
   return id === PICKLE_KING.id;
 }
 
-// Light early-difficulty bump so runs ramp; full scaling is Phase 5.
-function difficultyBonus(run: RunState): number {
-  return Math.floor(run.ralliesWon / 3);
+// Difficulty rises with rallies won. Drives opponent Balance, intent Pressure,
+// hidden-intent chance, and matchup length.
+function difficultyOf(run: RunState): number {
+  return run.ralliesWon;
+}
+
+// Extra opponent Balance from scaling.
+function balanceScale(run: RunState): number {
+  return Math.floor(run.ralliesWon / 2);
 }
 
 // ---- run setup ----
@@ -147,9 +152,10 @@ export function startRally(run: RunState): void {
 
   const maxBalance = isBossOpponent(opponent.id)
     ? PICKLE_KING.baseBalance
-    : opponent.baseBalance + difficultyBonus(run);
+    : opponent.baseBalance + balanceScale(run);
 
   const rally: RallyState = {
+    courtId: run.currentCourtId,
     opponentBalance: maxBalance,
     opponentMaxBalance: maxBalance,
     pressure: 0,
@@ -174,9 +180,9 @@ export function startRally(run: RunState): void {
 
   // Initial hand + first telegraphed intent.
   drawTo(rally, HAND_SIZE, rng);
-  const intent = chooseIntent(opponent, rng);
-  rally.intent = intent;
-  rally.intentHidden = isIntentHidden(intent);
+  const reveal = chooseIntentReveal(opponent, rng, difficultyOf(run));
+  rally.intent = reveal.intent;
+  rally.intentHidden = reveal.hidden;
 
   run.rally = rally;
   run.phase = 'rally';
@@ -287,6 +293,7 @@ export function endTurn(run: RunState): RunState {
       { playerWasAggressive: rally.aggressiveThisTurn },
       rng,
       rally.log,
+      difficultyOf(next),
     );
   }
 
@@ -305,9 +312,9 @@ export function endTurn(run: RunState): RunState {
   rally.playsRemaining = 1;
   rally.aggressiveThisTurn = false;
   rally.turn += 1;
-  const intent = chooseIntent(opponent, rng);
-  rally.intent = intent;
-  rally.intentHidden = isIntentHidden(intent);
+  const reveal = chooseIntentReveal(opponent, rng, difficultyOf(next));
+  rally.intent = reveal.intent;
+  rally.intentHidden = reveal.hidden;
   rally.log.push(`-- Turn ${rally.turn} --`);
 
   next.rngState = rng.state;
@@ -391,10 +398,14 @@ export function advanceOpponent(run: RunState): void {
     run.currentCourtId = BOSS_COURT_ID;
     run.matchupRalliesRequired = variant.ralliesRequired;
   } else {
-    const opp = rng.pick(OPPONENTS);
+    // Avoid immediately re-fighting the same opponent.
+    const candidates = OPPONENTS.filter((o) => o.id !== run.currentOpponentId);
+    const opp = rng.pick(candidates.length > 0 ? candidates : OPPONENTS);
     run.currentOpponentId = opp.id;
     run.currentCourtId = rng.pick(STANDARD_COURT_IDS);
-    run.matchupRalliesRequired = opp.baseRalliesRequired;
+    // Longer matchups deeper into the run.
+    const lengthBonus = run.ralliesWon >= 10 ? 1 : 0;
+    run.matchupRalliesRequired = opp.baseRalliesRequired + lengthBonus;
   }
 
   run.rngState = rng.state;

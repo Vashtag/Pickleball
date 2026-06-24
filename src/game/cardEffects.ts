@@ -44,6 +44,9 @@ function dealBalance(rally: RallyState, amount: number, log: string[], label: st
 // Increase the player's Pressure, applying Exhausted/Protected/Deep Return.
 export function gainPressure(rally: RallyState, amount: number, log: string[]): void {
   let p = Math.max(0, amount);
+  if (p > 0 && rally.courtId === 'tiny_court') {
+    p += 1; // Tiny Court: all Pressure gain +1
+  }
   if (p > 0 && (rally.playerStatuses.exhausted ?? 0) > 0) {
     p += 1; // Exhausted: incoming Pressure +1
   }
@@ -165,6 +168,17 @@ export function applyCardEffect(
   if (isCard(card.id, 'slice') && mods.has('spin_surface')) modBonus += 1;
   if (isCard(card.id, 'drop_shot') && isCard(prev, 'dink') && mods.has('kitchen_tape')) modBonus += 2;
   if (card.rarity === 'rare' && mods.has('illegal_sweet_spot')) modBonus += 2;
+
+  // Court damage modifiers.
+  const court = rally.courtId;
+  if (court === 'windy_court' && isCard(card.id, 'lob')) modBonus += 1; // wind carries the lob
+  if (court === 'kitchen_court' && (isCard(card.id, 'dink') || isCard(card.id, 'drop_shot'))) modBonus += 1;
+  if (court === 'tiny_court' && card.tags.includes('soft')) modBonus += 1;
+  if (court === 'cracked_court' && ctx.rng.chance(0.2)) {
+    modBonus += 1;
+    log.push('Cracked court warps the ball (+1 Balance).');
+  }
+
   const dmgBonus = quickHands + staminaBonus + modBonus;
 
   switch (card.id) {
@@ -369,6 +383,15 @@ export function applyCardEffect(
 
   // Illegal Sweet Spot: rare cards are stronger (+2 Balance above) but riskier.
   if (card.rarity === 'rare' && mods.has('illegal_sweet_spot')) {
+    gainPressure(rally, 1, log);
+  }
+
+  // Court Pressure side effects.
+  if (court === 'windy_court' && isCard(card.id, 'lob') && ctx.rng.chance(0.25)) {
+    gainPressure(rally, 1, log); // a gust catches the lob
+  }
+  if (court === 'cracked_court' && ctx.rng.chance(0.2)) {
+    log.push('Cracked court — bad bounce (+1 Pressure).');
     gainPressure(rally, 1, log);
   }
 
