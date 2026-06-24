@@ -5,6 +5,7 @@ import SettingsScreen from './screens/SettingsScreen';
 import KitchenCounterScreen from './screens/KitchenCounterScreen';
 import WarmUpPickScreen from './screens/WarmUpPickScreen';
 import RunScreen from './screens/RunScreen';
+import RewardScreen from './components/rewards/RewardScreen';
 import GameOverScreen from './screens/GameOverScreen';
 import VictoryScreen from './screens/VictoryScreen';
 import { useSaveData } from './hooks/useSaveData';
@@ -19,6 +20,7 @@ export type Screen =
   | 'kitchenCounter'
   | 'warmup'
   | 'run'
+  | 'reward'
   | 'gameover'
   | 'victory';
 
@@ -35,8 +37,10 @@ export default function App() {
   // string so it fires once per transition (not on every render).
   useEffect(() => {
     if (!phase) return;
-    if (phase === 'rally' || phase === 'rewardPending') {
+    if (phase === 'rally') {
       setScreen('run');
+    } else if (phase === 'rewardPending') {
+      setScreen('reward');
     } else if (phase === 'runOver') {
       if (!finalizedRef.current) {
         finalizedRef.current = true;
@@ -95,6 +99,16 @@ export default function App() {
           onEndTurn={game.endPlayerTurn}
           onContinue={game.continueAfterRally}
           onQuit={quitToMenu}
+        />
+      )}
+
+      {screen === 'reward' && game.reward && (
+        <RewardScreen
+          reward={game.reward}
+          onAddCard={game.chooseRewardCard}
+          onSkip={game.skipReward}
+          onSpecial={game.chooseRewardSpecial}
+          onPickMod={game.chooseRewardMod}
         />
       )}
 

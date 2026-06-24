@@ -12,6 +12,15 @@ import {
   beginNextRally,
   finishRun,
 } from '../game/engine';
+import {
+  generateReward,
+  applyAddCard,
+  applySkip,
+  applySpecial,
+  applyPaddleMod,
+  type RewardSet,
+} from '../game/rewards';
+import type { RewardOption } from '../types/rewards';
 import type { useSaveData } from './useSaveData';
 
 type SaveApi = ReturnType<typeof useSaveData>;
@@ -22,6 +31,7 @@ export function useGame(saveApi: SaveApi) {
   const [run, setRun] = useState<RunState | null>(null);
   const [warmUpChoices, setWarmUpChoices] = useState<string[]>([]);
   const [lastScore, setLastScore] = useState<RunScore | null>(null);
+  const [reward, setReward] = useState<RewardSet | null>(null);
 
   const start = useCallback(
     (seed?: string) => {
@@ -46,21 +56,47 @@ export function useGame(saveApi: SaveApi) {
     setRun((prev) => (prev ? endTurn(prev) : prev));
   }, []);
 
-  // Resolve a finished rally and move to the next one (rewards land in Phase 4).
+  // Resolve a finished rally. A win goes to a reward (or victory); a loss goes
+  // to the next rally (or game over).
   const continueAfterRally = useCallback(() => {
     setRun((prev) => {
       if (!prev?.rally) return prev;
       if (prev.rally.outcome === 'won') {
-        let next = winRally(prev);
-        if (next.phase === 'rewardPending') next = beginNextRally(next);
-        return next;
+        const next = winRally(prev);
+        if (next.phase === 'victory') return next; // boss cleared — no reward
+        const { reward: generated, run: withReward } = generateReward(next, saveApi.save);
+        setReward(generated);
+        return withReward; // stays in 'rewardPending'; App shows the reward screen
       }
       if (prev.rally.outcome === 'lost') {
         return loseRally(prev);
       }
       return prev;
     });
+  }, [saveApi.save]);
+
+  // Apply a chosen reward, then begin the next rally.
+  const finishReward = useCallback((apply: (r: RunState) => RunState) => {
+    setReward(null);
+    setRun((prev) => (prev ? beginNextRally(apply(prev)) : prev));
   }, []);
+
+  const chooseRewardCard = useCallback(
+    (cardId: string) => finishReward((r) => applyAddCard(r, cardId)),
+    [finishReward],
+  );
+  const skipReward = useCallback(
+    () => finishReward((r) => applySkip(r, reward?.skipBucks ?? 0)),
+    [finishReward, reward],
+  );
+  const chooseRewardSpecial = useCallback(
+    (option: RewardOption) => finishReward((r) => applySpecial(r, option)),
+    [finishReward],
+  );
+  const chooseRewardMod = useCallback(
+    (modId: string) => finishReward((r) => applyPaddleMod(r, modId)),
+    [finishReward],
+  );
 
   // Fold the finished run into the save and capture its score. Idempotent per run.
   const finalizeRun = useCallback(() => {
@@ -76,17 +112,23 @@ export function useGame(saveApi: SaveApi) {
   const clearRun = useCallback(() => {
     setRun(null);
     setWarmUpChoices([]);
+    setReward(null);
   }, []);
 
   return {
     run,
     warmUpChoices,
     lastScore,
+    reward,
     start,
     chooseWarmUp,
     play,
     endPlayerTurn,
     continueAfterRally,
+    chooseRewardCard,
+    skipReward,
+    chooseRewardSpecial,
+    chooseRewardMod,
     finalizeRun,
     clearRun,
   };

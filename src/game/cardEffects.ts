@@ -123,6 +123,8 @@ export interface EffectContext {
   prevCardId: string | null;
   intentAggressive: boolean;
   rng: Rng;
+  /** Active Paddle Mod ids for the run. */
+  paddleMods: string[];
 }
 
 // Resolve a single card's effect. Returns the combo name if one fired (for the
@@ -135,6 +137,18 @@ export function applyCardEffect(
 ): string | null {
   const prev = ctx.prevCardId;
   const combo = getComboName(prev, card.id);
+  const mods = new Set(ctx.paddleMods);
+
+  // Soft Touch Core: the first Soft card each rally eases Pressure.
+  if (
+    card.tags.includes('soft') &&
+    mods.has('soft_touch_core') &&
+    !rally.mods.firstSoftPressureReliefUsed
+  ) {
+    rally.mods.firstSoftPressureReliefUsed = true;
+    reducePressure(rally, 1, log);
+    log.push('Soft Touch Core eases the Pressure.');
+  }
 
   // Generic bonuses to any damaging card.
   const quickHands = isCard(prev, 'paddle_tap') ? 1 : 0; // Quick Hands combo
@@ -144,7 +158,14 @@ export function applyCardEffect(
     rally.mods.nextStaminaCardBonus = 0;
     log.push('Safe Serve setup pays off!');
   }
-  const dmgBonus = quickHands + staminaBonus;
+  // Paddle Mod flat damage bonuses applied to the matching shot.
+  let modBonus = 0;
+  if (isCard(card.id, 'dink') && mods.has('grandma_grip')) modBonus += 1;
+  if (isCard(card.id, 'drive') && mods.has('pop_paddle')) modBonus += 1;
+  if (isCard(card.id, 'slice') && mods.has('spin_surface')) modBonus += 1;
+  if (isCard(card.id, 'drop_shot') && isCard(prev, 'dink') && mods.has('kitchen_tape')) modBonus += 2;
+  if (card.rarity === 'rare' && mods.has('illegal_sweet_spot')) modBonus += 2;
+  const dmgBonus = quickHands + staminaBonus + modBonus;
 
   switch (card.id) {
     // ---- starters ----
@@ -167,7 +188,8 @@ export function applyCardEffect(
     }
     case 'reset':
     case 'reset_plus': {
-      reducePressure(rally, card.id === 'reset_plus' ? 4 : 3, log);
+      const squeaky = mods.has('squeaky_grip') ? 1 : 0; // Squeaky Grip mod
+      reducePressure(rally, (card.id === 'reset_plus' ? 4 : 3) + squeaky, log);
       if (card.id === 'reset_plus') drawCards(rally, 1, ctx.rng, log);
       break;
     }
@@ -343,6 +365,11 @@ export function applyCardEffect(
       // Unknown card: no-op but keep the game stable.
       log.push(`${card.name} has no effect yet.`);
       break;
+  }
+
+  // Illegal Sweet Spot: rare cards are stronger (+2 Balance above) but riskier.
+  if (card.rarity === 'rare' && mods.has('illegal_sweet_spot')) {
+    gainPressure(rally, 1, log);
   }
 
   if (combo) log.push(`Combo: ${combo}!`);
