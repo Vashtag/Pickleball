@@ -1,5 +1,6 @@
 import type { RallyState, RunState } from '../../types/game';
 import Meter from '../common/Meter';
+import { getPaddleMod } from '../../data/paddleMods';
 
 interface PlayerStatsProps {
   run: RunState;
@@ -46,6 +47,19 @@ export default function PlayerStats({ run, rally }: PlayerStatsProps) {
         <div className="player-stats__statuses">
           {exhausted && <span className="status status--exhausted">Exhausted</span>}
           {protectedTurns > 0 && <span className="status status--protected">Protected</span>}
+        </div>
+      )}
+
+      {run.paddleMods.length > 0 && (
+        <div className="player-stats__mods" title="Active Paddle Mods">
+          {run.paddleMods.map((id) => {
+            const mod = getPaddleMod(id);
+            return (
+              <span key={id} className="player-stats__mod" title={`${mod.name}: ${mod.description}`}>
+                {mod.icon}
+              </span>
+            );
+          })}
         </div>
       )}
     </section>

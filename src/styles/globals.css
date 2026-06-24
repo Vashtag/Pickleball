@@ -229,6 +229,57 @@ body {
   padding: 24px;
 }
 
+/* ---- Reward screen ---- */
+
+.reward-screen {
+  align-items: center;
+}
+
+.reward-screen__cards,
+.reward-screen__mods {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.reward-screen__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.mod-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 220px;
+  padding: 16px;
+  text-align: left;
+  color: var(--color-text);
+  background: linear-gradient(170deg, #2a3d33, #1c2c24);
+  border: 1px solid #ffffff1f;
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.mod-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-raised);
+}
+
+.mod-card__icon { font-size: 1.8rem; }
+.mod-card__name { font-family: var(--font-display); font-weight: 700; }
+.mod-card__desc { font-size: 0.85rem; color: #d8e6dc; }
+.mod-card__theme { font-size: 0.75rem; font-style: italic; color: var(--color-text-muted); }
+
+.player-stats__mods { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid #ffffff14; }
+.player-stats__mod { font-size: 1.1rem; cursor: help; }
+
 /* ---- Result screens (Game Over / Victory) ---- */
 
 .result-screen__title {

@@ -100,6 +100,7 @@ export function startRun(seedInput?: string): RunState {
     bossVariantId: rng.pick(BOSS_VARIANTS).id, // seed fixes the boss variant
     rally: null,
     instanceCounter: 0,
+    edgeGuardUsed: false,
   };
 
   // Build the 12-card starter deck.
@@ -202,6 +203,10 @@ export function effectiveCost(run: RunState, cardId: string): number {
   let cost = card.staminaCost;
   const prev = run.rally?.lastCardId ?? null;
   if (cardId === 'counter_smash' && isCard(prev, 'step_back')) cost -= 1;
+  // Carbon Core: Smash costs 1 less Stamina (minimum 1).
+  if (isCard(cardId, 'smash') && run.paddleMods.includes('carbon_core')) {
+    return Math.max(1, cost - 1);
+  }
   return Math.max(0, cost);
 }
 
@@ -245,6 +250,7 @@ export function playCard(run: RunState, instanceId: string): RunState {
     prevCardId: rally.lastCardId,
     intentAggressive: rally.intent?.aggressive ?? false,
     rng,
+    paddleMods: next.paddleMods,
   };
 
   const balanceBefore = rally.opponentBalance;
@@ -347,8 +353,16 @@ export function winRally(run: RunState): RunState {
 // Resolve a lost rally: lose a life; same matchup continues (progress kept).
 export function loseRally(run: RunState): RunState {
   const next = clone(run);
+
+  // Haunted Edge Guard: ignore the first life loss each run.
+  if (next.paddleMods.includes('haunted_edge_guard') && !next.edgeGuardUsed) {
+    next.edgeGuardUsed = true;
+    if (next.rally) next.rally.log.push('Haunted Edge Guard saves you — no life lost!');
+    startRally(next);
+    return next;
+  }
+
   next.lives -= 1;
-  // TODO(phase 4): Haunted Edge Guard paddle mod ignores the first life loss.
   if (next.lives <= 0) {
     next.lives = 0;
     next.phase = 'runOver';

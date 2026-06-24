@@ -101,6 +101,8 @@ export interface RunState {
   rally: RallyState | null;
   /** Monotonic counter for generating unique card instance ids. */
   instanceCounter: number;
+  /** Haunted Edge Guard paddle mod: whether its one-time life save was used. */
+  edgeGuardUsed: boolean;
 }
 
 // ---- Post-run shop ----
