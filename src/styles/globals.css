@@ -209,6 +209,71 @@ body {
   padding: 8px 0;
 }
 
+/* ---- Warm-Up Pick ---- */
+
+.warmup-screen__choices {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.warmup-screen__empty {
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: center;
+  color: var(--color-text-muted);
+  background: var(--color-panel);
+  border: 1px dashed #ffffff22;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+/* ---- Result screens (Game Over / Victory) ---- */
+
+.result-screen__title {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 7vw, 4rem);
+  margin: 0;
+}
+
+.result-screen--win .result-screen__title {
+  color: var(--color-accent);
+}
+
+.result-screen--loss .result-screen__title {
+  color: var(--color-danger);
+}
+
+.result-screen__subtitle {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.result-screen__stats {
+  list-style: none;
+  padding: 18px 22px;
+  margin: 0;
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--color-panel);
+  border: 1px solid #ffffff14;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+.result-screen__stats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.result-screen__stats span {
+  color: var(--color-text-muted);
+}
+
 /* ---- Kitchen Counter placeholder ---- */
 
 .kitchen-counter-screen__placeholder {
