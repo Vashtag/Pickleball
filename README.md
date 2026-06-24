@@ -32,8 +32,9 @@ Then open the URL Vite prints (default http://localhost:5173).
 
 ## Deployment (GitHub Pages)
 
-The Vite `base` is set to `/pickleball/` for production builds (matching the
-`vashtag/pickleball` repo), and `/` in dev. A GitHub Actions workflow
+The Vite `base` is set to `/Pickleball/` for production builds (matching the
+`Vashtag/Pickleball` repo — the path is case-sensitive), and `/` in dev. A
+GitHub Actions workflow
 (`.github/workflows/deploy.yml`) builds and deploys on pushes to `main`.
 
 To enable: in the repo's **Settings → Pages**, set **Source** to **GitHub Actions**.
