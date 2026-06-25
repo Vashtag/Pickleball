@@ -1,9 +1,9 @@
-// Real-time rally simulation for the 3D first-person prototype. Framework-free:
+// Real-time rally simulation for the 3D first-person mode. Framework-free:
 // holds all mutable state, advances on update(dt), and exposes input methods.
-// The R3F scene reads positions each frame; the HUD reads summary fields.
-// Arcade ballistics (no physics engine). Constants are tuned by feel.
+// No in-rally cards — shot type is contextual (normal / soft / auto-smash on a
+// high ball) and tuned by the run's perk Loadout. Arcade ballistics.
 
-import { getShot, SHOT_DECK, type ShotParams } from './shots';
+import { BASE_LOADOUT, type Loadout } from './perks';
 
 export interface Vec3 {
   x: number;
@@ -13,7 +13,7 @@ export interface Vec3 {
 
 export type Side = 'player' | 'opponent';
 
-// Court layout (units). Player stands near +Z, opponent near -Z, net at Z=0.
+// Court layout (units). Player near +Z, opponent near -Z, net at Z=0.
 export const COURT = {
   halfWidth: 5,
   netZ: 0,
@@ -24,13 +24,19 @@ export const COURT = {
 };
 
 const GRAVITY = -18;
-const PLAYER_SPEED = 9; // lateral move speed
-const PLAYER_REACH = 2.4;
-const OPP_SPEED = 7;
-const OPP_REACH = 2.3;
-const OPP_FAULT_CHANCE = 0.15;
-const HAND_SIZE = 5;
-const START_STAMINA = 5;
+const BASE_PLAYER_SPEED = 9;
+const BASE_PLAYER_REACH = 2.4;
+const BASE_OPP_SPEED = 6.5;
+const BASE_OPP_REACH = 2.3;
+const BASE_OPP_FAULT = 0.16;
+
+export interface RallyConfig {
+  loadout: Loadout;
+  /** 0-based difficulty; rises each match. */
+  difficulty: number;
+  pointsToWin: number;
+  opponentName: string;
+}
 
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -44,6 +50,7 @@ export class RallyGame {
   // input
   aimX = 0;
   moveDir = 0; // -1 (left) .. 1 (right)
+  moveDirZ = 0; // -1 (toward net) .. 1 (back)
 
   // rally state
   lastHitBy: Side | null = null;
@@ -53,75 +60,45 @@ export class RallyGame {
   private swingCooldown = 0;
   private resolving = false;
 
-  // deck
-  drawPile: string[] = [];
-  discardPile: string[] = [];
-  hand: string[] = [];
-  loadedIndex: number | null = null;
-  stamina = START_STAMINA;
+  // config / tuning
+  private loadout: Loadout;
+  private difficulty: number;
+  pointsToWin: number;
+  opponentName: string;
+  private oppSpeed: number;
+  private oppReach: number;
+  private oppFault: number;
+  private serveSpeed: number;
 
   // score / flow
   scoreYou = 0;
   scoreOpp = 0;
   message = 'Get ready…';
-  rallyCount = 0; // shots exchanged this point
+  rallyCount = 0;
   serving = true;
   private serveTimer = 1.2;
+  matchOver = false;
 
   onHud?: () => void;
+  onMatchEnd?: (winner: Side) => void;
 
-  constructor() {
-    this.resetDeck();
-    this.drawNewHand();
+  constructor(config?: Partial<RallyConfig>) {
+    this.loadout = config?.loadout ?? { ...BASE_LOADOUT };
+    this.difficulty = config?.difficulty ?? 0;
+    this.pointsToWin = config?.pointsToWin ?? 4;
+    this.opponentName = config?.opponentName ?? 'Rival';
+    this.oppSpeed = BASE_OPP_SPEED + this.difficulty * 0.7;
+    this.oppReach = BASE_OPP_REACH + this.difficulty * 0.06;
+    this.oppFault = Math.max(0.04, BASE_OPP_FAULT - this.difficulty * 0.025 - this.loadout.oppFaultBonus);
+    this.serveSpeed = 16 + this.difficulty * 0.8;
   }
 
   private hud(): void {
     this.onHud?.();
   }
 
-  // ---- deck ----
-  private resetDeck(): void {
-    this.drawPile = shuffle(SHOT_DECK.slice());
-    this.discardPile = [];
-    this.hand = [];
-  }
-
-  private drawOne(): void {
-    if (this.drawPile.length === 0) {
-      this.drawPile = shuffle(this.discardPile);
-      this.discardPile = [];
-    }
-    const c = this.drawPile.pop();
-    if (c) this.hand.push(c);
-  }
-
-  private drawNewHand(): void {
-    this.discardPile.push(...this.hand);
-    this.hand = [];
-    while (this.hand.length < HAND_SIZE && this.drawPile.length + this.discardPile.length > 0) {
-      this.drawOne();
-    }
-    this.loadedIndex = null;
-  }
-
-  loadCard(index: number): void {
-    if (index < 0 || index >= this.hand.length) return;
-    const shot = getShot(this.hand[index]);
-    if (this.stamina < shot.cost) {
-      this.message = `Not enough Stamina for ${shot.name}.`;
-      this.hud();
-      return;
-    }
-    this.loadedIndex = this.loadedIndex === index ? null : index;
-    this.hud();
-  }
-
-  private currentShot(): { shot: ShotParams; index: number | null } {
-    if (this.loadedIndex != null && this.loadedIndex < this.hand.length) {
-      const shot = getShot(this.hand[this.loadedIndex]);
-      if (this.stamina >= shot.cost) return { shot, index: this.loadedIndex };
-    }
-    return { shot: getShot('block'), index: null };
+  private get playerReach(): number {
+    return BASE_PLAYER_REACH + this.loadout.reachBonus;
   }
 
   // ---- point flow ----
@@ -129,7 +106,7 @@ export class RallyGame {
     this.opp.x = rand(-4, 4);
     this.ball.p = { x: this.opp.x, y: 0.4, z: COURT.oppBaseline + 0.3 };
     const targetX = rand(-4, 4);
-    this.ball.v = aimVelocity(this.ball.p, targetX, COURT.playerBaseline - 1, 16, 8.5);
+    this.ball.v = aimVelocity(this.ball.p, targetX, COURT.playerBaseline - 1, this.serveSpeed, 8.5);
     this.lastHitBy = 'opponent';
     this.bounces = 0;
     this.prevZ = this.ball.p.z;
@@ -146,8 +123,15 @@ export class RallyGame {
     if (winner === 'player') this.scoreYou++;
     else this.scoreOpp++;
     this.message = `${winner === 'player' ? 'Your point!' : 'Point lost'} — ${reason}`;
-    this.drawNewHand();
-    this.stamina = START_STAMINA;
+
+    if (this.scoreYou >= this.pointsToWin || this.scoreOpp >= this.pointsToWin) {
+      this.matchOver = true;
+      const matchWinner: Side = this.scoreYou >= this.pointsToWin ? 'player' : 'opponent';
+      this.hud();
+      this.onMatchEnd?.(matchWinner);
+      return;
+    }
+
     this.serving = true;
     this.serveTimer = 1.4;
     this.rallyCount = 0;
@@ -155,15 +139,18 @@ export class RallyGame {
   }
 
   // ---- input: swing ----
-  swing(): void {
-    if (!this.ballActive || this.swingCooldown > 0) return;
+  // soft = touch shot (dink/drop); otherwise a paced drive, or a smash off a
+  // high ball.
+  swing(soft: boolean): void {
+    if (!this.ballActive || this.swingCooldown > 0 || this.matchOver) return;
     if (this.lastHitBy === 'player') return; // can't hit your own shot
     const b = this.ball.p;
+    const window = 1.5 + this.loadout.hitWindowBonus;
     const inZone =
       b.z >= this.player.z - 4 &&
-      b.z <= this.player.z + 1.5 &&
+      b.z <= this.player.z + window &&
       b.y <= 3.8 &&
-      Math.abs(b.x - this.player.x) <= PLAYER_REACH;
+      Math.abs(b.x - this.player.x) <= this.playerReach;
     if (!inZone) {
       this.message = 'Swing and a miss!';
       this.swingCooldown = 0.25;
@@ -171,31 +158,41 @@ export class RallyGame {
       return;
     }
 
-    const { shot, index } = this.currentShot();
-    // Smash off a low ball pops up weakly and risks a fault.
-    const mishit = shot.needsHigh && b.y < 1.7;
-    const speed = mishit ? shot.speed * 0.45 : shot.speed;
-    const arc = mishit ? shot.arc + 9 : shot.arc;
+    const high = b.y > 1.7;
+    let speed: number;
+    let arc: number;
+    let targetZ: number;
+    let label: string;
+    if (soft) {
+      speed = 12;
+      arc = 8;
+      targetZ = -(COURT.kitchen + 1); // drop into their kitchen
+      label = 'Dink';
+    } else if (high) {
+      speed = 28;
+      arc = 2;
+      targetZ = COURT.oppBaseline + 1;
+      label = 'Smash!';
+    } else {
+      speed = 22;
+      arc = 4;
+      targetZ = COURT.oppBaseline + 1;
+      label = 'Drive';
+    }
+    speed *= this.loadout.speedMult;
 
-    this.ball.v = aimVelocity(b, this.aimX, COURT.oppBaseline + 1, speed, arc);
+    this.ball.v = aimVelocity(b, this.aimX, targetZ, speed, arc);
     this.lastHitBy = 'player';
     this.bounces = 0;
     this.swingCooldown = 0.3;
-
-    if (index != null) {
-      this.stamina -= shot.cost;
-      this.discardPile.push(this.hand[index]);
-      this.hand.splice(index, 1);
-      this.drawOne();
-      this.loadedIndex = null;
-    }
     this.rallyCount++;
-    this.message = mishit ? `Mishit ${shot.name}…` : `${shot.name}!`;
+    this.message = label;
     this.hud();
   }
 
   // ---- main update ----
   update(dtRaw: number): void {
+    if (this.matchOver) return;
     const dt = Math.min(0.05, dtRaw);
     this.swingCooldown = Math.max(0, this.swingCooldown - dt);
 
@@ -209,13 +206,19 @@ export class RallyGame {
     }
     if (!this.ballActive) return;
 
-    // Player movement.
-    this.player.x = clamp(this.player.x + this.moveDir * PLAYER_SPEED * dt, -COURT.halfWidth, COURT.halfWidth);
+    // Player movement (lateral + up/down court).
+    const moveSpeed = BASE_PLAYER_SPEED * this.loadout.moveSpeedMult;
+    this.player.x = clamp(this.player.x + this.moveDir * moveSpeed * dt, -COURT.halfWidth, COURT.halfWidth);
+    this.player.z = clamp(
+      this.player.z + this.moveDirZ * moveSpeed * dt,
+      COURT.kitchen + 0.5,
+      COURT.playerBaseline,
+    );
 
-    // Opponent AI: track the ball when it's on their side and heading to them.
+    // Opponent AI: track the ball when it's heading to them.
     if (this.lastHitBy === 'player') {
       const dir = Math.sign(this.ball.p.x - this.opp.x);
-      this.opp.x = clamp(this.opp.x + dir * OPP_SPEED * dt, -COURT.halfWidth, COURT.halfWidth);
+      this.opp.x = clamp(this.opp.x + dir * this.oppSpeed * dt, -COURT.halfWidth, COURT.halfWidth);
     }
 
     // Integrate ball.
@@ -226,11 +229,9 @@ export class RallyGame {
     b.p.z += b.v.z * dt;
 
     // Net crossing.
-    if ((this.prevZ - COURT.netZ) * (b.p.z - COURT.netZ) < 0) {
-      if (b.p.y < COURT.netHeight) {
-        this.endPoint(this.lastHitBy === 'player' ? 'opponent' : 'player', 'into the net');
-        return;
-      }
+    if ((this.prevZ - COURT.netZ) * (b.p.z - COURT.netZ) < 0 && b.p.y < COURT.netHeight) {
+      this.endPoint(this.lastHitBy === 'player' ? 'opponent' : 'player', 'into the net');
+      return;
     }
     this.prevZ = b.p.z;
 
@@ -238,7 +239,6 @@ export class RallyGame {
     if (b.p.y <= 0.12 && b.v.y < 0) {
       b.p.y = 0.12;
       this.bounces++;
-      // Out of bounds on first landing.
       if (this.bounces === 1) {
         const out =
           Math.abs(b.p.x) > COURT.halfWidth + 0.1 ||
@@ -249,7 +249,6 @@ export class RallyGame {
           return;
         }
       }
-      // Second bounce: the side it's on failed to return it.
       if (this.bounces >= 2) {
         const onPlayerSide = b.p.z > COURT.netZ;
         this.endPoint(onPlayerSide ? 'opponent' : 'player', 'double bounce');
@@ -262,11 +261,10 @@ export class RallyGame {
 
     // Opponent return when the ball reaches their baseline.
     if (this.lastHitBy === 'player' && b.p.z <= this.opp.z + 0.8 && b.v.z < 0) {
-      const reach = Math.abs(this.opp.x - b.p.x) <= OPP_REACH && b.p.y <= 3.8;
-      if (reach && Math.random() > OPP_FAULT_CHANCE) {
-        // Opponent returns toward the open part of the player's court.
+      const reach = Math.abs(this.opp.x - b.p.x) <= this.oppReach && b.p.y <= 3.8;
+      if (reach && Math.random() > this.oppFault) {
         const targetX = this.player.x > 0 ? rand(-4, -1) : rand(1, 4);
-        this.ball.v = aimVelocity(b.p, targetX, COURT.playerBaseline - 1, rand(15, 19), rand(7, 9.5));
+        this.ball.v = aimVelocity(b.p, targetX, COURT.playerBaseline - 1, rand(15, 19) + this.difficulty, rand(7, 9.5));
         this.lastHitBy = 'opponent';
         this.bounces = 0;
         this.rallyCount++;
@@ -291,16 +289,8 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-// Velocity to launch from `from` toward (targetX, targetZ) on the ground, with
-// the given horizontal speed and upward arc.
+// Velocity to launch from `from` toward (targetX, targetZ) with the given
+// horizontal speed and upward arc.
 function aimVelocity(from: Vec3, targetX: number, targetZ: number, speed: number, arc: number): Vec3 {
   const dx = targetX - from.x;
   const dz = targetZ - from.z;
