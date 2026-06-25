@@ -55,41 +55,8 @@
   gap: 8px;
 }
 
-.practice__stamina {
-  color: var(--color-gold);
-  font-weight: 700;
-}
-
-.practice__hand {
-  display: flex;
-  gap: 10px;
-  pointer-events: auto;
-}
-
-.shot-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 84px;
-  padding: 8px 6px;
-  background: linear-gradient(170deg, #24382e, #1a2b23);
-  border: 1px solid #ffffff22;
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  cursor: pointer;
-  transition: transform 0.08s ease, border-color 0.1s ease;
-}
-
-.shot-card:hover { transform: translateY(-4px); }
-.shot-card--loaded { border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent); }
-.shot-card--poor { filter: grayscale(0.6) brightness(0.7); }
-
-.shot-card__key { position: absolute; top: 3px; left: 5px; font-size: 0.65rem; color: var(--color-text-muted); }
-.shot-card__icon { font-size: 1.6rem; }
-.shot-card__name { font-size: 0.8rem; font-weight: 600; }
-.shot-card__cost { font-size: 0.7rem; color: var(--color-gold); }
+.practice__lives { margin-left: 8px; }
+.practice__perks { display: flex; gap: 8px; font-size: 1.3rem; pointer-events: auto; }
 
 .practice__hint {
   margin: 0;
@@ -99,3 +66,38 @@
   padding: 4px 10px;
   border-radius: 999px;
 }
+
+/* ---- Perk draft ---- */
+.perk-screen__choices {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.perk-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 200px;
+  padding: 18px 14px;
+  text-align: center;
+  color: var(--color-text);
+  background: linear-gradient(170deg, #2a3d33, #1c2c24);
+  border: 1px solid #ffffff1f;
+  border-top: 4px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.perk-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-raised); }
+.perk-card__icon { font-size: 2rem; }
+.perk-card__name { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; }
+.perk-card__desc { font-size: 0.85rem; color: #d8e6dc; }
+
+.perk-screen__owned { color: var(--color-text-muted); font-size: 1.2rem; letter-spacing: 2px; }
+
+.result-screen__buttons { display: flex; gap: 12px; }
+
