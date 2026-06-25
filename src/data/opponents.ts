@@ -176,3 +176,17 @@ export function getOpponent(id: string): Opponent {
   if (!opp) throw new Error(`Unknown opponent id: ${id}`);
   return opp;
 }
+
+export function getBossVariant(id: string | null): BossVariant {
+  return BOSS_VARIANTS.find((v) => v.id === id) ?? BOSS_VARIANTS[0];
+}
+
+export function getBossBuff(id: string | null): BossBuff | undefined {
+  return BOSS_BUFFS.find((b) => b.id === id);
+}
+
+export function getBossCounter(id: string): BossCounter {
+  const c = BOSS_COUNTERS.find((b) => b.id === id);
+  if (!c) throw new Error(`Unknown boss counter id: ${id}`);
+  return c;
+}

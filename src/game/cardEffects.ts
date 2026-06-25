@@ -6,6 +6,7 @@ import type { Card } from '../types/cards';
 import type { RallyState, StatusId } from '../types/game';
 import { Rng } from './rng';
 import { getComboName, isCard } from './combos';
+import { getCard } from '../data/cards';
 
 // ---- low-level mutators ----
 
@@ -128,6 +129,8 @@ export interface EffectContext {
   rng: Rng;
   /** Active Paddle Mod ids for the run. */
   paddleMods: string[];
+  /** Boss variant id during a boss rally, else null. */
+  bossVariantId: string | null;
 }
 
 // Resolve a single card's effect. Returns the combo name if one fired (for the
@@ -177,6 +180,13 @@ export function applyCardEffect(
   if (court === 'cracked_court' && ctx.rng.chance(0.2)) {
     modBonus += 1;
     log.push('Cracked court warps the ball (+1 Balance).');
+  }
+
+  // Boss buff (Kitchen Decree): the first Soft card this rally is weaker.
+  if (card.tags.includes('soft') && rally.weakenFirstSoft && !rally.firstSoftWeakenUsed) {
+    rally.firstSoftWeakenUsed = true;
+    modBonus -= 1;
+    log.push('Kitchen Decree weakens your soft shot (-1).');
   }
 
   const dmgBonus = quickHands + staminaBonus + modBonus;
@@ -395,6 +405,26 @@ export function applyCardEffect(
     gainPressure(rally, 1, log);
   }
 
-  if (combo) log.push(`Combo: ${combo}!`);
+  // Boss variant (Kitchen Tyrant): Dinks/Drop Shots are riskier unless set up.
+  if (
+    ctx.bossVariantId === 'kitchen_tyrant' &&
+    (isCard(card.id, 'dink') || isCard(card.id, 'drop_shot'))
+  ) {
+    const afterSetup = prev != null && getCard(prev).tags.includes('setup');
+    if (!afterSetup) {
+      log.push('Kitchen Tyrant punishes the reckless soft shot.');
+      gainPressure(rally, 1, log);
+    }
+  }
+
+  if (combo) {
+    // Boss buff (Mirror Glare): the first combo this rally is dampened.
+    if (rally.weakenFirstCombo) {
+      rally.weakenFirstCombo = false;
+      rally.opponentBalance = Math.min(rally.opponentMaxBalance, rally.opponentBalance + 1);
+      log.push('Mirror Glare dampens the combo (-1).');
+    }
+    log.push(`Combo: ${combo}!`);
+  }
   return combo;
 }

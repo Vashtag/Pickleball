@@ -4,13 +4,15 @@ import Button from '../components/common/Button';
 interface MainMenuProps {
   onNavigate: (screen: Screen) => void;
   onStartRun: () => void;
+  onPractice: () => void;
 }
 
-export default function MainMenu({ onNavigate, onStartRun }: MainMenuProps) {
+export default function MainMenu({ onNavigate, onStartRun, onPractice }: MainMenuProps) {
   return (
     <main className="screen screen--center main-menu">
       <h1 className="main-menu__title">Dink or Die</h1>
       <nav className="main-menu__nav">
+        <Button onClick={onPractice}>Practice Rally (3D) ★ new</Button>
         <Button onClick={onStartRun}>Start Run</Button>
         <Button variant="secondary" onClick={() => onNavigate('kitchenCounter')}>
           The Kitchen Counter
