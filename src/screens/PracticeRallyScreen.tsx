@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three';
 import { RallyGame, COURT } from '../game/rallyGame';
 import { buildLoadout, getPerk, rollPerkChoices, type Loadout } from '../game/perks';
-import { SHOT_PALETTE, getShot } from '../game/shots';
+import { getShot } from '../game/shots';
 import Button from '../components/common/Button';
 import '../styles/practice.css';
 
@@ -24,10 +24,13 @@ const BASE_LIVES = 3;
 type RunPhase = 'perk' | 'match' | 'won' | 'lost';
 
 // ---- 3D scene ----
+const ARC_DOTS = 16;
+
 function Scene({ game }: { game: RallyGame }) {
   const ballRef = useRef<THREE.Mesh>(null);
   const oppRef = useRef<THREE.Mesh>(null);
   const aimRef = useRef<THREE.Mesh>(null);
+  const dotRefs = useRef<(THREE.Mesh | null)[]>([]);
   const { camera } = useThree();
 
   useFrame((_s, dt) => {
@@ -37,6 +40,20 @@ function Scene({ game }: { game: RallyGame }) {
     aimRef.current?.position.set(game.aimX, 0.06, COURT.oppBaseline + 1.5);
     camera.position.set(game.player.x, 2.1, game.player.z + 0.4);
     camera.lookAt(game.player.x * 0.25, 0.8, COURT.oppBaseline);
+
+    // Ghost-arc preview dots.
+    const arc = game.predictedArc;
+    for (let i = 0; i < ARC_DOTS; i++) {
+      const dot = dotRefs.current[i];
+      if (!dot) continue;
+      const pt = arc[i];
+      if (pt) {
+        dot.visible = true;
+        dot.position.set(pt.x, pt.y, pt.z);
+      } else {
+        dot.visible = false;
+      }
+    }
   });
 
   const onAim = (e: ThreeEvent<PointerEvent>) => {
@@ -73,6 +90,14 @@ function Scene({ game }: { game: RallyGame }) {
         <sphereGeometry args={[0.18, 16, 16]} />
         <meshStandardMaterial color="#e8ff5a" emissive="#7a8a20" />
       </mesh>
+
+      {/* Ghost-arc preview dots. */}
+      {Array.from({ length: ARC_DOTS }).map((_, i) => (
+        <mesh key={i} ref={(el) => (dotRefs.current[i] = el)} visible={false}>
+          <sphereGeometry args={[0.07, 8, 8]} />
+          <meshBasicMaterial color="#e8ff5a" transparent opacity={0.7} />
+        </mesh>
+      ))}
     </>
   );
 }
@@ -168,10 +193,9 @@ export default function PracticeRallyScreen({ onBack }: PracticeRallyScreenProps
       else if (e.key === 'd' || e.key === 'ArrowRight') g.moveDir = 1;
       else if (e.key === 'w' || e.key === 'ArrowUp') g.moveDirZ = -1;
       else if (e.key === 's' || e.key === 'ArrowDown') g.moveDirZ = 1;
-      else if (e.key === ' ') { e.preventDefault(); g.swing(); }
-      else if (e.key >= '1' && e.key <= '5') {
-        const id = SHOT_PALETTE[Number(e.key) - 1];
-        if (id) g.setShot(id);
+      else if (e.key >= '1' && e.key <= '4') {
+        e.preventDefault();
+        g.playCard(Number(e.key) - 1);
       }
     };
     const up = (e: KeyboardEvent) => {
@@ -246,14 +270,7 @@ export default function PracticeRallyScreen({ onBack }: PracticeRallyScreenProps
 
   // ---- live match ----
   return (
-    <div
-      className="practice"
-      onPointerDown={(e) => {
-        if (phaseRef.current !== 'match') return;
-        if (e.button === 0) game?.swing();
-      }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
+    <div className="practice">
       <Canvas key={`${matchIndexRef.current}-${attemptRef.current}`} camera={{ fov: 60, position: [0, 2.1, COURT.playerBaseline + 0.4] }}>
         <color attach="background" args={['#0e1512']} />
         {game && <Scene game={game} />}
@@ -271,20 +288,22 @@ export default function PracticeRallyScreen({ onBack }: PracticeRallyScreenProps
         <div className="practice__message">{game?.message}</div>
 
         <div className="practice__bottom">
-          <div className="practice__palette">
-            {SHOT_PALETTE.map((id, i) => {
+          <div className="practice__stamina">Stamina: {'⚡'.repeat(game?.stamina ?? 0) || '—'}</div>
+          <div className="practice__hand">
+            {(game?.hand ?? []).map((id, i) => {
               const shot = getShot(id);
-              const active = game?.currentShotId === id;
+              const afford = (game?.stamina ?? 0) >= shot.cost;
               return (
                 <button
-                  key={id}
-                  className={`shot-pick ${active ? 'shot-pick--active' : ''}`}
+                  key={i}
+                  className={`hand-card ${afford ? '' : 'hand-card--poor'}`}
                   title={shot.note}
-                  onPointerDown={(e) => { e.stopPropagation(); game?.setShot(id); }}
+                  onClick={() => game?.playCard(i)}
                 >
-                  <span className="shot-pick__key">{i + 1}</span>
-                  <span className="shot-pick__icon">{shot.icon}</span>
-                  <span className="shot-pick__name">{shot.name}</span>
+                  <span className="hand-card__key">{i + 1}</span>
+                  <span className="hand-card__icon">{shot.icon}</span>
+                  <span className="hand-card__name">{shot.name}</span>
+                  {shot.cost > 0 && <span className="hand-card__cost">⚡{shot.cost}</span>}
                 </button>
               );
             })}
@@ -297,7 +316,7 @@ export default function PracticeRallyScreen({ onBack }: PracticeRallyScreenProps
             </div>
           )}
           <p className="practice__hint">
-            Move: W/A/S/D · Aim: mouse · Pick shot: 1–5 or click · Hit: left-click or Space · First to {game?.pointsToWin ?? 4}
+            Move: W/A/S/D · Aim: mouse · Play a shot card: 1–4 or click · First to {game?.pointsToWin ?? 4}
           </p>
         </div>
       </div>

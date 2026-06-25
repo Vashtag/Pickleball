@@ -6,6 +6,8 @@ export interface ShotParams {
   id: string;
   name: string;
   icon: string;
+  /** Stamina cost to play this shot (basic shots are free). */
+  cost: number;
   /** Horizontal launch speed (court units/sec). */
   speed: number;
   /** Upward launch velocity (arc height). */
@@ -18,16 +20,23 @@ export interface ShotParams {
 }
 
 export const SHOTS: Record<string, ShotParams> = {
-  dink: { id: 'dink', name: 'Dink', icon: '🏓', speed: 9, arc: 8, depth: 'short', note: 'Soft drop into the kitchen.' },
-  drive: { id: 'drive', name: 'Drive', icon: '➡️', speed: 15, arc: 4, depth: 'deep', note: 'Paced, flat, deep.' },
-  slice: { id: 'slice', name: 'Slice', icon: '🔪', speed: 13, arc: 5, depth: 'deep', note: 'Low and skiddy.' },
-  lob: { id: 'lob', name: 'Lob', icon: '🌙', speed: 12, arc: 14, depth: 'deep', note: 'High and deep — push them back.' },
-  smash: { id: 'smash', name: 'Smash', icon: '💥', speed: 20, arc: 2, depth: 'deep', needsHigh: true, note: 'Fast and down — needs a high ball.' },
+  dink: { id: 'dink', name: 'Dink', icon: '🏓', cost: 0, speed: 9, arc: 8, depth: 'short', note: 'Soft drop into the kitchen.' },
+  drive: { id: 'drive', name: 'Drive', icon: '➡️', cost: 0, speed: 15, arc: 4, depth: 'deep', note: 'Paced, flat, deep.' },
+  slice: { id: 'slice', name: 'Slice', icon: '🔪', cost: 0, speed: 13, arc: 5, depth: 'deep', note: 'Low and skiddy.' },
+  lob: { id: 'lob', name: 'Lob', icon: '🌙', cost: 1, speed: 12, arc: 14, depth: 'deep', note: 'High and deep — push them back.' },
+  smash: { id: 'smash', name: 'Smash', icon: '💥', cost: 2, speed: 20, arc: 2, depth: 'deep', needsHigh: true, note: 'Fast and down — needs a high ball.' },
 };
-
-// Order shown in the HUD and bound to keys 1..N.
-export const SHOT_PALETTE: string[] = ['dink', 'drive', 'slice', 'lob', 'smash'];
 
 export function getShot(id: string): ShotParams {
   return SHOTS[id] ?? SHOTS.drive;
 }
+
+// The rally deck — the pool your hand is drawn from each point.
+export const SHOT_DECK: string[] = [
+  'dink', 'dink', 'dink',
+  'drive', 'drive', 'drive',
+  'slice', 'slice',
+  'lob', 'lob',
+  'smash',
+];
+
