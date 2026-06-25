@@ -4,6 +4,7 @@
 // high ball) and tuned by the run's perk Loadout. Arcade ballistics.
 
 import { BASE_LOADOUT, type Loadout } from './perks';
+import { getShot } from './shots';
 
 export interface Vec3 {
   x: number;
@@ -23,12 +24,15 @@ export const COURT = {
   kitchen: 2,
 };
 
-const GRAVITY = -18;
+// Tuning — slower than the first pass for reaction time.
+const GRAVITY = -15;
 const BASE_PLAYER_SPEED = 9;
-const BASE_PLAYER_REACH = 2.4;
-const BASE_OPP_SPEED = 6.5;
+const BASE_PLAYER_REACH = 2.6;
+const BASE_HIT_WINDOW = 2.2; // depth tolerance in front of the player
+const BASE_OPP_SPEED = 5.5;
 const BASE_OPP_REACH = 2.3;
 const BASE_OPP_FAULT = 0.16;
+const BASE_SERVE_SPEED = 11;
 
 export interface RallyConfig {
   loadout: Loadout;
@@ -51,6 +55,7 @@ export class RallyGame {
   aimX = 0;
   moveDir = 0; // -1 (left) .. 1 (right)
   moveDirZ = 0; // -1 (toward net) .. 1 (back)
+  currentShotId = 'drive'; // selected shot in the palette
 
   // rally state
   lastHitBy: Side | null = null;
@@ -87,10 +92,10 @@ export class RallyGame {
     this.difficulty = config?.difficulty ?? 0;
     this.pointsToWin = config?.pointsToWin ?? 4;
     this.opponentName = config?.opponentName ?? 'Rival';
-    this.oppSpeed = BASE_OPP_SPEED + this.difficulty * 0.7;
+    this.oppSpeed = BASE_OPP_SPEED + this.difficulty * 0.5;
     this.oppReach = BASE_OPP_REACH + this.difficulty * 0.06;
     this.oppFault = Math.max(0.04, BASE_OPP_FAULT - this.difficulty * 0.025 - this.loadout.oppFaultBonus);
-    this.serveSpeed = 16 + this.difficulty * 0.8;
+    this.serveSpeed = BASE_SERVE_SPEED + this.difficulty * 0.5;
   }
 
   private hud(): void {
@@ -138,55 +143,48 @@ export class RallyGame {
     this.hud();
   }
 
+  // Select which shot the next swing will play.
+  setShot(id: string): void {
+    this.currentShotId = id;
+    this.hud();
+  }
+
   // ---- input: swing ----
-  // soft = touch shot (dink/drop); otherwise a paced drive, or a smash off a
-  // high ball.
-  swing(soft: boolean): void {
+  // Executes the currently selected shot toward the aim point.
+  swing(): void {
     if (!this.ballActive || this.swingCooldown > 0 || this.matchOver) return;
     if (this.lastHitBy === 'player') return; // can't hit your own shot
     const b = this.ball.p;
-    const window = 1.5 + this.loadout.hitWindowBonus;
+    const window = BASE_HIT_WINDOW + this.loadout.hitWindowBonus;
     const inZone =
-      b.z >= this.player.z - 4 &&
+      b.z >= this.player.z - 5 &&
       b.z <= this.player.z + window &&
       b.y <= 3.8 &&
       Math.abs(b.x - this.player.x) <= this.playerReach;
     if (!inZone) {
       this.message = 'Swing and a miss!';
-      this.swingCooldown = 0.25;
+      this.swingCooldown = 0.22;
       this.hud();
       return;
     }
 
+    const shot = getShot(this.currentShotId);
     const high = b.y > 1.7;
-    let speed: number;
-    let arc: number;
-    let targetZ: number;
-    let label: string;
-    if (soft) {
-      speed = 12;
-      arc = 8;
-      targetZ = -(COURT.kitchen + 1); // drop into their kitchen
-      label = 'Dink';
-    } else if (high) {
-      speed = 28;
-      arc = 2;
-      targetZ = COURT.oppBaseline + 1;
-      label = 'Smash!';
-    } else {
-      speed = 22;
-      arc = 4;
-      targetZ = COURT.oppBaseline + 1;
-      label = 'Drive';
+    const mishit = shot.needsHigh === true && !high;
+    let speed = shot.speed * this.loadout.speedMult;
+    let arc = shot.arc;
+    if (mishit) {
+      speed *= 0.5; // smash off a low ball pops up weakly
+      arc += 8;
     }
-    speed *= this.loadout.speedMult;
+    const targetZ = shot.depth === 'short' ? -(COURT.kitchen + 1) : COURT.oppBaseline + 1;
 
     this.ball.v = aimVelocity(b, this.aimX, targetZ, speed, arc);
     this.lastHitBy = 'player';
     this.bounces = 0;
-    this.swingCooldown = 0.3;
+    this.swingCooldown = 0.25;
     this.rallyCount++;
-    this.message = label;
+    this.message = mishit ? `Mishit ${shot.name}…` : shot.name;
     this.hud();
   }
 
@@ -264,7 +262,7 @@ export class RallyGame {
       const reach = Math.abs(this.opp.x - b.p.x) <= this.oppReach && b.p.y <= 3.8;
       if (reach && Math.random() > this.oppFault) {
         const targetX = this.player.x > 0 ? rand(-4, -1) : rand(1, 4);
-        this.ball.v = aimVelocity(b.p, targetX, COURT.playerBaseline - 1, rand(15, 19) + this.difficulty, rand(7, 9.5));
+        this.ball.v = aimVelocity(b.p, targetX, COURT.playerBaseline - 1, rand(10, 13) + this.difficulty * 0.5, rand(7, 9));
         this.lastHitBy = 'opponent';
         this.bounces = 0;
         this.rallyCount++;

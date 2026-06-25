@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three';
 import { RallyGame, COURT } from '../game/rallyGame';
 import { buildLoadout, getPerk, rollPerkChoices, type Loadout } from '../game/perks';
+import { SHOT_PALETTE, getShot } from '../game/shots';
 import Button from '../components/common/Button';
 import '../styles/practice.css';
 
@@ -167,8 +168,11 @@ export default function PracticeRallyScreen({ onBack }: PracticeRallyScreenProps
       else if (e.key === 'd' || e.key === 'ArrowRight') g.moveDir = 1;
       else if (e.key === 'w' || e.key === 'ArrowUp') g.moveDirZ = -1;
       else if (e.key === 's' || e.key === 'ArrowDown') g.moveDirZ = 1;
-      else if (e.key === ' ') { e.preventDefault(); g.swing(false); }
-      else if (e.key === 'Shift') g.swing(true);
+      else if (e.key === ' ') { e.preventDefault(); g.swing(); }
+      else if (e.key >= '1' && e.key <= '5') {
+        const id = SHOT_PALETTE[Number(e.key) - 1];
+        if (id) g.setShot(id);
+      }
     };
     const up = (e: KeyboardEvent) => {
       const g = gameRef.current;
@@ -246,8 +250,7 @@ export default function PracticeRallyScreen({ onBack }: PracticeRallyScreenProps
       className="practice"
       onPointerDown={(e) => {
         if (phaseRef.current !== 'match') return;
-        if (e.button === 2) game?.swing(true);
-        else if (e.button === 0) game?.swing(false);
+        if (e.button === 0) game?.swing();
       }}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -268,13 +271,33 @@ export default function PracticeRallyScreen({ onBack }: PracticeRallyScreenProps
         <div className="practice__message">{game?.message}</div>
 
         <div className="practice__bottom">
-          <div className="practice__perks">
-            {perkIdsRef.current.map((id) => (
-              <span key={id} title={getPerk(id).name}>{getPerk(id).icon}</span>
-            ))}
+          <div className="practice__palette">
+            {SHOT_PALETTE.map((id, i) => {
+              const shot = getShot(id);
+              const active = game?.currentShotId === id;
+              return (
+                <button
+                  key={id}
+                  className={`shot-pick ${active ? 'shot-pick--active' : ''}`}
+                  title={shot.note}
+                  onPointerDown={(e) => { e.stopPropagation(); game?.setShot(id); }}
+                >
+                  <span className="shot-pick__key">{i + 1}</span>
+                  <span className="shot-pick__icon">{shot.icon}</span>
+                  <span className="shot-pick__name">{shot.name}</span>
+                </button>
+              );
+            })}
           </div>
+          {perkIdsRef.current.length > 0 && (
+            <div className="practice__perks">
+              {perkIdsRef.current.map((id) => (
+                <span key={id} title={getPerk(id).name}>{getPerk(id).icon}</span>
+              ))}
+            </div>
+          )}
           <p className="practice__hint">
-            Move: W/A/S/D · Aim: mouse · Drive/Smash: left-click or Space · Dink: right-click or Shift · First to {game?.pointsToWin ?? 4}
+            Move: W/A/S/D · Aim: mouse · Pick shot: 1–5 or click · Hit: left-click or Space · First to {game?.pointsToWin ?? 4}
           </p>
         </div>
       </div>

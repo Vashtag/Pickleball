@@ -1,43 +1,33 @@
-// Shot parameters for the real-time rally prototype. Each playable shot card
-// maps to a ball trajectory (launch speed + vertical arc) and a Stamina cost.
-// Tuned by feel — expect to adjust these during playtest.
+// Selectable shot palette for the 3D rally. You pick the current shot (1-5 or
+// click), then swinging executes it toward your aim. No stamina/cards — these
+// are just shot types. Tuned slow-ish for reaction time; adjust by feel.
 
 export interface ShotParams {
   id: string;
   name: string;
   icon: string;
-  cost: number;
   /** Horizontal launch speed (court units/sec). */
   speed: number;
-  /** Upward launch velocity (sets the arc height). */
+  /** Upward launch velocity (arc height). */
   arc: number;
-  /** Smash-style shots only land well when struck from a high ball. */
+  /** Where it aims down-court: short = into their kitchen, deep = baseline. */
+  depth: 'short' | 'deep';
+  /** Smash-style shots only land well off a high ball. */
   needsHigh?: boolean;
   note: string;
 }
 
 export const SHOTS: Record<string, ShotParams> = {
-  block: { id: 'block', name: 'Block', icon: '🪨', cost: 0, speed: 15, arc: 7, note: 'Safe neutral return.' },
-  dink: { id: 'dink', name: 'Dink', icon: '🏓', cost: 0, speed: 12, arc: 8, note: 'Soft — drops near the net.' },
-  drive: { id: 'drive', name: 'Drive', icon: '➡️', cost: 0, speed: 24, arc: 4, note: 'Fast and flat.' },
-  lob: { id: 'lob', name: 'Lob', icon: '🌙', cost: 1, speed: 15, arc: 13, note: 'High and deep.' },
-  smash: { id: 'smash', name: 'Smash', icon: '💥', cost: 2, speed: 28, arc: 2, needsHigh: true, note: 'Huge — needs a high ball.' },
-  slice: { id: 'slice', name: 'Slice', icon: '🔪', cost: 0, speed: 18, arc: 6, note: 'Low and skiddy.' },
-  drop_shot: { id: 'drop_shot', name: 'Drop Shot', icon: '🤏', cost: 1, speed: 13, arc: 9, note: 'Soft touch into the kitchen.' },
-  reset: { id: 'reset', name: 'Reset', icon: '🔄', cost: 0, speed: 12, arc: 9, note: 'Absorb pace, soft reset.' },
+  dink: { id: 'dink', name: 'Dink', icon: '🏓', speed: 9, arc: 8, depth: 'short', note: 'Soft drop into the kitchen.' },
+  drive: { id: 'drive', name: 'Drive', icon: '➡️', speed: 15, arc: 4, depth: 'deep', note: 'Paced, flat, deep.' },
+  slice: { id: 'slice', name: 'Slice', icon: '🔪', speed: 13, arc: 5, depth: 'deep', note: 'Low and skiddy.' },
+  lob: { id: 'lob', name: 'Lob', icon: '🌙', speed: 12, arc: 14, depth: 'deep', note: 'High and deep — push them back.' },
+  smash: { id: 'smash', name: 'Smash', icon: '💥', speed: 20, arc: 2, depth: 'deep', needsHigh: true, note: 'Fast and down — needs a high ball.' },
 };
 
-export function getShot(id: string): ShotParams {
-  return SHOTS[id] ?? SHOTS.block;
-}
+// Order shown in the HUD and bound to keys 1..N.
+export const SHOT_PALETTE: string[] = ['dink', 'drive', 'slice', 'lob', 'smash'];
 
-// The prototype shot deck drawn from during a rally.
-export const SHOT_DECK: string[] = [
-  'dink', 'dink', 'dink',
-  'drive', 'drive',
-  'slice', 'slice',
-  'drop_shot',
-  'lob',
-  'smash',
-  'reset', 'reset',
-];
+export function getShot(id: string): ShotParams {
+  return SHOTS[id] ?? SHOTS.drive;
+}
