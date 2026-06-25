@@ -68,6 +68,13 @@ export interface RallyState {
   playerStatuses: StatusMap;
   opponentStatuses: StatusMap;
   mods: RallyMods;
+  /** Extra Pressure added to every opponent intent (boss buffs/variants). */
+  bonusIntentPressure: number;
+  /** Boss buff: the first Soft card this rally is weakened. */
+  weakenFirstSoft: boolean;
+  firstSoftWeakenUsed: boolean;
+  /** Boss buff: the first combo this rally deals 1 less Balance. */
+  weakenFirstCombo: boolean;
   outcome: RallyOutcome;
   /** Turn-by-turn action log, newest last. */
   log: string[];
@@ -77,6 +84,8 @@ export type RunPhase =
   | 'warmup'
   | 'rally'
   | 'rewardPending'
+  | 'bossReveal'
+  | 'bossInterlude'
   | 'runOver'
   | 'victory';
 
@@ -105,6 +114,14 @@ export interface RunState {
   instanceCounter: number;
   /** Haunted Edge Guard paddle mod: whether its one-time life save was used. */
   edgeGuardUsed: boolean;
+  /** Boss: whether the variant reveal screen has been shown. */
+  bossRevealed: boolean;
+  /** Boss: buff to apply at the next boss rally (chosen at an interlude). */
+  bossBuffId: string | null;
+  /** Boss: counter-bonus the player chose to apply at the next boss rally. */
+  pendingCounterId: string | null;
+  /** Boss: the counter options offered at the current interlude. */
+  bossCounterChoices: string[];
 }
 
 // ---- Post-run shop ----

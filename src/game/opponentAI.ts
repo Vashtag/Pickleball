@@ -136,6 +136,11 @@ export function resolveIntent(
       gainPressure(rally, aggroBonus, log);
     }
   }
+
+  // Boss buff / variant (Royal Pressure, Pressure King): every intent stings more.
+  if (rally.bonusIntentPressure > 0) {
+    gainPressure(rally, rally.bonusIntentPressure, log);
+  }
 }
 
 // Whether a just-played card counts as aggressive for opponent reactions.

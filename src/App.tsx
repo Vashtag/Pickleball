@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import TitleScreen from './screens/TitleScreen';
 import MainMenu from './screens/MainMenu';
 import SettingsScreen from './screens/SettingsScreen';
@@ -8,6 +8,9 @@ import RunScreen from './screens/RunScreen';
 import RewardScreen from './components/rewards/RewardScreen';
 import GameOverScreen from './screens/GameOverScreen';
 import VictoryScreen from './screens/VictoryScreen';
+
+// Code-split: the 3D rally pulls in Three.js, so load it only on demand.
+const PracticeRallyScreen = lazy(() => import('./screens/PracticeRallyScreen'));
 import { useSaveData } from './hooks/useSaveData';
 import { useGame } from './hooks/useGame';
 
@@ -22,7 +25,8 @@ export type Screen =
   | 'run'
   | 'reward'
   | 'gameover'
-  | 'victory';
+  | 'victory'
+  | 'practice';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('title');
@@ -74,7 +78,17 @@ export default function App() {
       {screen === 'title' && <TitleScreen onContinue={() => setScreen('mainMenu')} />}
 
       {screen === 'mainMenu' && (
-        <MainMenu onNavigate={setScreen} onStartRun={startRun} />
+        <MainMenu
+          onNavigate={setScreen}
+          onStartRun={startRun}
+          onPractice={() => setScreen('practice')}
+        />
+      )}
+
+      {screen === 'practice' && (
+        <Suspense fallback={<div className="screen screen--center">Loading court…</div>}>
+          <PracticeRallyScreen onBack={() => setScreen('mainMenu')} />
+        </Suspense>
       )}
 
       {screen === 'settings' && (

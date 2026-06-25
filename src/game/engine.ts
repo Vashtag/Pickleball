@@ -106,6 +106,10 @@ export function startRun(seedInput?: string): RunState {
     rally: null,
     instanceCounter: 0,
     edgeGuardUsed: false,
+    bossRevealed: false,
+    bossBuffId: null,
+    pendingCounterId: null,
+    bossCounterChoices: [],
   };
 
   // Build the 12-card starter deck.
@@ -174,6 +178,10 @@ export function startRally(run: RunState): void {
     playerStatuses: {},
     opponentStatuses: {},
     mods: defaultMods(),
+    bonusIntentPressure: 0,
+    weakenFirstSoft: false,
+    firstSoftWeakenUsed: false,
+    weakenFirstCombo: false,
     outcome: 'ongoing',
     log: [`Rally vs ${opponent.name} begins.`],
   };
@@ -257,6 +265,7 @@ export function playCard(run: RunState, instanceId: string): RunState {
     intentAggressive: rally.intent?.aggressive ?? false,
     rng,
     paddleMods: next.paddleMods,
+    bossVariantId: isBossOpponent(next.currentOpponentId) ? next.bossVariantId : null,
   };
 
   const balanceBefore = rally.opponentBalance;
